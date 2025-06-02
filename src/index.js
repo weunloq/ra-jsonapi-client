@@ -1,6 +1,6 @@
-import { stringify } from 'qs';
-import merge from 'deepmerge';
-import axios from 'axios';
+import { stringify } from "qs";
+import merge from "deepmerge";
+import axios from "axios";
 import {
   GET_LIST,
   GET_ONE,
@@ -9,11 +9,11 @@ import {
   DELETE,
   GET_MANY,
   GET_MANY_REFERENCE,
-} from './actions';
+} from "./actions";
 
-import defaultSettings from './default-settings';
-import { NotImplementedError } from './errors';
-import init from './initializer';
+import defaultSettings from "./default-settings";
+import { NotImplementedError } from "./errors";
+import init from "./initializer";
 
 // Set HTTP interceptors.
 init();
@@ -29,117 +29,128 @@ init();
  * @param {Object} payload Request parameters. Depends on the request type
  * @returns {Promise} the Promise for a data response
  */
-export default (apiUrl, userSettings = {}) => (type, resource, params) => {
-  let url = '';
-  const settings = merge(defaultSettings, userSettings);
+export default (apiUrl, userSettings = {}) =>
+  (type, resource, params) => {
+    let url = "";
+    const settings = merge(defaultSettings, userSettings);
 
-  const options = {
-    headers: settings.headers,
-  };
+    const options = {
+      headers: settings.headers,
+    };
 
-  switch (type) {
-    case GET_LIST: {
-      const { page, perPage } = params.pagination;
+    switch (type) {
+      case GET_LIST: {
+        const { page, perPage } = params.pagination;
 
-      // Create query with pagination params.
-      const query = {
-        'page[number]': page,
-        'page[size]': perPage,
-      };
+        // Create query with pagination params.
+        const query = {
+          "page[number]": page,
+          "page[size]": perPage,
+        };
 
-      // Add all filter params to query.
-      Object.keys(params.filter || {}).forEach((key) => {
-        query[`filter[${key}]`] = params.filter[key];
-      });
+        // Add all filter params to query.
+        Object.keys(params.filter || {}).forEach((key) => {
+          query[`filter[${key}]`] = params.filter[key];
+        });
 
-      // Add sort parameter
-      if (params.sort && params.sort.field) {
-        const prefix = params.sort.order === 'ASC' ? '' : '-';
-        query.sort = `${prefix}${params.sort.field}`;
+        // Add fields parameters
+        params = addFieldsToparams(resource, params);
+        Object.keys(params.fields || {}).forEach(function (field) {
+          query["fields[" + field + "]"] = params.fields[field];
+        });
+
+        // Add sort parameter
+        if (params.sort && params.sort.field) {
+          const prefix = params.sort.order === "ASC" ? "" : "-";
+          query.sort = `${prefix}${params.sort.field}`;
+        }
+
+        url = `${apiUrl}/${resource}?${stringify(query)}`;
+        break;
       }
 
-      url = `${apiUrl}/${resource}?${stringify(query)}`;
-      break;
-    }
+      case GET_ONE:
+        url = `${apiUrl}/${resource}/${params.id}`;
+        break;
 
-    case GET_ONE:
-      url = `${apiUrl}/${resource}/${params.id}`;
-      break;
+      case CREATE:
+        url = `${apiUrl}/${resource}`;
+        options.method = "POST";
+        options.data = JSON.stringify({
+          data: { type: resource, attributes: params.data },
+        });
+        break;
 
-    case CREATE:
-      url = `${apiUrl}/${resource}`;
-      options.method = 'POST';
-      options.data = JSON.stringify({
-        data: { type: resource, attributes: params.data },
-      });
-      break;
+      case UPDATE: {
+        url = `${apiUrl}/${resource}/${params.id}`;
 
-    case UPDATE: {
-      url = `${apiUrl}/${resource}/${params.id}`;
+        const attributes = params.data;
+        delete attributes.id;
 
-      const attributes = params.data;
-      delete attributes.id;
+        const data = {
+          data: {
+            id: params.id,
+            type: resource,
+            attributes,
+          },
+        };
 
-      const data = {
-        data: {
-          id: params.id,
-          type: resource,
-          attributes,
-        },
-      };
-
-      options.method = settings.updateMethod;
-      options.data = JSON.stringify(data);
-      break;
-    }
-
-    case DELETE:
-      url = `${apiUrl}/${resource}/${params.id}`;
-      options.method = 'DELETE';
-      break;
-
-    case GET_MANY: {
-      const query = stringify({
-        [`filter[${settings.getManyKey}]`]: params.ids,
-      }, { arrayFormat: settings.arrayFormat });
-
-      url = `${apiUrl}/${resource}?${query}`;
-      break;
-    }
-
-    case GET_MANY_REFERENCE: {
-      const { page, perPage } = params.pagination;
-
-      // Create query with pagination params.
-      const query = {
-        'page[number]': page,
-        'page[size]': perPage,
-      };
-
-      // Add all filter params to query.
-      Object.keys(params.filter || {}).forEach((key) => {
-        query[`filter[${key}]`] = params.filter[key];
-      });
-
-      // Add the reference id to the filter params.
-      query[`filter[${params.target}]`] = params.id;
-
-      // Add sort parameter
-      if (params.sort && params.sort.field) {
-        const prefix = params.sort.order === 'ASC' ? '' : '-';
-        query.sort = `${prefix}${params.sort.field}`;
+        options.method = settings.updateMethod;
+        options.data = JSON.stringify(data);
+        break;
       }
 
-      url = `${apiUrl}/${resource}?${stringify(query)}`;
-      break;
+      case DELETE:
+        url = `${apiUrl}/${resource}/${params.id}`;
+        options.method = "DELETE";
+        break;
+
+      case GET_MANY: {
+        const query = stringify(
+          {
+            [`filter[${settings.getManyKey}]`]: params.ids,
+          },
+          { arrayFormat: settings.arrayFormat }
+        );
+
+        url = `${apiUrl}/${resource}?${query}`;
+        break;
+      }
+
+      case GET_MANY_REFERENCE: {
+        const { page, perPage } = params.pagination;
+
+        // Create query with pagination params.
+        const query = {
+          "page[number]": page,
+          "page[size]": perPage,
+        };
+
+        // Add all filter params to query.
+        Object.keys(params.filter || {}).forEach((key) => {
+          query[`filter[${key}]`] = params.filter[key];
+        });
+
+        // Add the reference id to the filter params.
+        query[`filter[${params.target}]`] = params.id;
+
+        // Add sort parameter
+        if (params.sort && params.sort.field) {
+          const prefix = params.sort.order === "ASC" ? "" : "-";
+          query.sort = `${prefix}${params.sort.field}`;
+        }
+
+        url = `${apiUrl}/${resource}?${stringify(query)}`;
+        break;
+      }
+
+      default:
+        throw new NotImplementedError(
+          `Unsupported Data Provider request type ${type}`
+        );
     }
 
-    default:
-      throw new NotImplementedError(`Unsupported Data Provider request type ${type}`);
-  }
-
-  return axios({ url, ...options })
-    .then((response) => {
+    return axios({ url, ...options }).then((response) => {
       let total;
 
       // For all collection requests get the total count.
@@ -158,20 +169,18 @@ export default (apiUrl, userSettings = {}) => (type, resource, params) => {
         case GET_MANY:
         case GET_LIST: {
           return {
-            data: response.data.data.map(value => Object.assign(
-              { id: value.id },
-              value.attributes,
-            )),
+            data: response.data.data.map((value) =>
+              Object.assign({ id: value.id }, value.attributes)
+            ),
             total,
           };
         }
 
         case GET_MANY_REFERENCE: {
           return {
-            data: response.data.data.map(value => Object.assign(
-              { id: value.id },
-              value.attributes,
-            )),
+            data: response.data.data.map((value) =>
+              Object.assign({ id: value.id }, value.attributes)
+            ),
             total,
           };
         }
@@ -181,7 +190,8 @@ export default (apiUrl, userSettings = {}) => (type, resource, params) => {
 
           return {
             data: {
-              id, ...attributes,
+              id,
+              ...attributes,
             },
           };
         }
@@ -191,7 +201,8 @@ export default (apiUrl, userSettings = {}) => (type, resource, params) => {
 
           return {
             data: {
-              id, ...attributes,
+              id,
+              ...attributes,
             },
           };
         }
@@ -201,7 +212,8 @@ export default (apiUrl, userSettings = {}) => (type, resource, params) => {
 
           return {
             data: {
-              id, ...attributes,
+              id,
+              ...attributes,
             },
           };
         }
@@ -213,7 +225,37 @@ export default (apiUrl, userSettings = {}) => (type, resource, params) => {
         }
 
         default:
-          throw new NotImplementedError(`Unsupported Data Provider request type ${type}`);
+          throw new NotImplementedError(
+            `Unsupported Data Provider request type ${type}`
+          );
       }
     });
-};
+  };
+
+function addFieldsToparams(resource, params) {
+  const baseKey = `RaStore.preferences.${resource}.datagrid`;
+
+  const columns = JSON.parse(localStorage.getItem(`${baseKey}.columns`));
+  const omit = JSON.parse(localStorage.getItem(`${baseKey}.omit`));
+  const available = JSON.parse(
+    localStorage.getItem(`${baseKey}.availableColumns`)
+  );
+
+  let selected = available;
+  if (omit != null) {
+    selected = available.filter((a) => !omit.find((o) => a["source"] == o));
+  }
+  if (columns != null) {
+    selected = columns.map((c) => available.find((a) => a["index"] == c));
+  }
+
+  if (selected != null) {
+    const resourceParts = resource.split("/");
+    const apiResource = resourceParts[resourceParts.length - 1];
+
+    params["fields"] = {};
+    params["fields"][apiResource] = selected.map((s) => s.source).join(",");
+  }
+
+  return params;
+}
