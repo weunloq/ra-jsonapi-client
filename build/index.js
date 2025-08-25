@@ -242,6 +242,7 @@ exports.default = function (apiUrl) {
               return Object.assign({ id: value.id }, value.attributes)
             }),
             total: total,
+            meta: response.data.meta,
           }
         }
 
