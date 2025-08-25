@@ -173,6 +173,7 @@ export default (apiUrl, userSettings = {}) =>
               Object.assign({ id: value.id }, value.attributes)
             ),
             total,
+            meta: response.data.meta,
           };
         }
 
