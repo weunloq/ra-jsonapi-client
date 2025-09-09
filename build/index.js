@@ -99,6 +99,10 @@ exports.default = function (apiUrl) {
           query["fields[" + field + "]"] = params.fields[field]
         })
 
+        Object.keys(params.meta || {}).forEach(function (meta) {
+          query["meta[" + meta + "]"] = params.meta[meta]
+        })
+
         // Add sort parameter
         if (params.sort && params.sort.field) {
           var prefix = params.sort.order === "ASC" ? "" : "-"
